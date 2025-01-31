@@ -7,13 +7,12 @@ WITH paid_data as
         COALESCE(SUM(purchases),0) as purchases, COALESCE(SUM(revenue),0) as revenue
     FROM
         (SELECT 'Meta' as channel, date, date_granularity, 
-            spend, link_clicks as clicks, impressions, purchases_7_d_click as purchases, revenue_7_d_click as revenue
+            spend, link_clicks as clicks, impressions, purchases, revenue
         FROM {{ source('reporting','facebook_ad_performance') }}
         WHERE account = 'DTC'
         UNION ALL
         SELECT 'Google Ads' as channel, date, date_granularity,
-            spend, clicks, impressions, gift_purchases+subscription_purchases+alc_purchases as purchases, 
-            gift_purchases_revenue+subscription_purchases_revenue+alc_purchases_revenue as revenue
+            spend, clicks, impressions, purchases, revenue
         FROM {{ source('reporting','googleads_campaign_performance') }}
         )
     GROUP BY channel, date, date_granularity)
