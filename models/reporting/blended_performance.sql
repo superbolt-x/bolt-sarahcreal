@@ -36,5 +36,5 @@ SELECT channel,
     shopify_orders,
     shopify_first_orders
 FROM (
-    SELECT * FROM paid_data UNION ALL sho_data
+    SELECT * FROM paid_data UNION ALL SELECT * FROM sho_data
 )
