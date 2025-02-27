@@ -4,7 +4,7 @@
 
 WITH paid_data as
     (SELECT channel, date::date, date_granularity, COALESCE(SUM(spend),0) as spend, COALESCE(SUM(clicks),0) as clicks, COALESCE(SUM(impressions),0) as impressions, 
-        COALESCE(SUM(paid_purchases),0) as paid_purchases, COALESCE(SUM(paid_revenue),0) as paid_revenue, 0 as shopify_total_sales, 0 as shopify_orders, 0 as shopify_first_orders
+        COALESCE(SUM(paid_purchases),0) as paid_purchases, COALESCE(SUM(paid_revenue),0) as paid_revenue, 0 as shopify_total_sales, 0 as shopify_orders, 0 as shopify_first_orders, 0 as shopify_subtotal_sales
     FROM
         (SELECT 'Meta' as channel, date, date_granularity, 
             spend, link_clicks as clicks, impressions, purchases as paid_purchases, revenue as paid_revenue
@@ -34,7 +34,8 @@ SELECT channel,
     paid_revenue,
     shopify_total_sales,
     shopify_orders,
-    shopify_first_orders
+    shopify_first_orders,
+    shopify_subtotal_sales
 FROM (
     SELECT * FROM paid_data UNION ALL SELECT * FROM sho_data
 )
