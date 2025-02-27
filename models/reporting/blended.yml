@@ -14,5 +14,5 @@ sources:
     - name: shopify_sales
       identifier: sarahcreal_shopify_sales
 
-    - name: shopify_line_items
-      identifier: sarahcreal_shopify_line_items
+    - name: shopify_orders
+      identifier: sarahcreal_shopify_orders
