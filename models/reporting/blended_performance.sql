@@ -11,7 +11,7 @@ WITH
         SELECT 
             '{{granularity}}' as date_granularity,
             {{granularity}} as date,
-            COALESCE(SUM(gross_sales),0) - COALESCE(SUM(CASE WHEN ('skeeper' ~* order_tags OR 'shopmy' ~* order_tags) THEN subtotal_discount END),0) as subtotal_sales_adj
+            COALESCE(SUM(gross_revenue),0) - COALESCE(SUM(CASE WHEN ('skeeper' ~* order_tags OR 'shopmy' ~* order_tags) THEN subtotal_discount END),0) as subtotal_sales_adj
         FROM {{ ref('shopify_daily_sales_by_order') }}
         WHERE cancelled_at is null AND customer_id is not null
         GROUP BY date_granularity, date
