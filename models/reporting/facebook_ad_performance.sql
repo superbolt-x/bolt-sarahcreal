@@ -28,5 +28,7 @@ impressions,
 link_clicks,
 add_to_cart,
 purchases,
-revenue
+revenue,
+omni_purchase_with_shared_items as purchases_shared_items,
+omni_purchase_with_shared_items_value as revenue_shared_items
 FROM {{ ref('facebook_performance_by_ad') }}
