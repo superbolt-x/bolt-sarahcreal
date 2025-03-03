@@ -13,7 +13,5 @@ impressions,
 link_clicks,
 add_to_cart,
 purchases,
-revenue,
-omni_purchase_with_shared_items as purchases_shared_items,
-omni_purchase_with_shared_items_value as revenue_shared_items
+revenue
 FROM {{ ref('facebook_performance_by_campaign_age') }}
