@@ -14,8 +14,11 @@ sources:
     - name: shopify_sales
       identifier: sarahcreal_shopify_sales
 
-    - name: shopify_orders
-      identifier: sarahcreal_shopify_orders
-
     - name: shopify_daily_sales_by_order
       identifier: sarahcreal_shopify_daily_sales_by_order
+
+- name: shopify_base
+  schema: shopify_base
+  tables:
+    - name: shopify_orders
+      identifier: shopify_orders
