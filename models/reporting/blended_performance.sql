@@ -16,7 +16,7 @@ WITH
         LEFT JOIN 
             (SELECT order_id, COALESCE(SUM(total_discount),0) as discount_amount 
             FROM {{ source('shopify_base','shopify_orders') }} WHERE (discount_code ~* 'shopmy' OR discount_code ~* 'skeeper')
-            GROUP BY order_id) USING(order_id
+            GROUP BY order_id) USING(order_id)
         GROUP BY date_granularity, {{granularity}}
         {% if not loop.last %}UNION ALL{% endif %}
         {% endfor %}
