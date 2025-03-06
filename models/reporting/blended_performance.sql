@@ -14,7 +14,7 @@ WITH
             COALESCE(SUM(gross_revenue),0) - COALESCE(SUM(discount_amount),0) as subtotal_sales_adj
         FROM {{ ref('shopify_daily_sales_by_order') }}
         LEFT JOIN 
-            (SELECT order_id, COALESCE(SUM(total_discount),0) as discount_amount 
+            (SELECT order_id, COALESCE(SUM(total_discounts),0) as discount_amount 
             FROM {{ source('shopify_base','shopify_orders') }} WHERE (discount_code ~* 'shopmy' OR discount_code ~* 'skeeper')
             GROUP BY order_id) USING(order_id)
         GROUP BY date_granularity, {{granularity}}
