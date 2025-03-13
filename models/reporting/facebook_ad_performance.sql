@@ -27,8 +27,8 @@ spend,
 impressions,
 link_clicks,
 add_to_cart,
-purchases,
-revenue,
+onsite_web_purchase as purchases,
+onsite_web_purchase_value as revenue,
 omni_purchase_with_shared_items as purchases_shared_items,
 omni_purchase_with_shared_items_value as revenue_shared_items
 FROM {{ ref('facebook_performance_by_ad') }}
