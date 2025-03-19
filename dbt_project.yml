@@ -21,7 +21,7 @@ clean-targets:         # directories to be removed by `dbt clean`
 
 vars:
     # General vars
-    week_start: 'Monday' # Abbreviation and full name both work
+    week_start: 'Sunday' # Abbreviation and full name both work
     currency: "USD"
 
     # Googleads vars
