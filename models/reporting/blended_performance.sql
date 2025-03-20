@@ -39,7 +39,20 @@ WITH
 
 sho_data as
     (
-        SELECT 'Shopify' as channel, date, date_granularity, 0 as spend, 0 as clicks, 0 as impressions, 0 as paid_purchases, 0 as paid_revenue, COALESCE(SUM(total_net_sales),0) as shopify_total_sales, COALESCE(SUM(orders),0) as shopify_orders, COALESCE(SUM(first_orders),0) as shopify_first_orders, COALESCE(SUM(subtotal_sales_adj), 0) as shopify_subtotal_sales_adj
+        SELECT
+            'Shopify' as channel,
+            date,
+            date_granularity,
+            0 as spend,
+            0 as clicks,
+            0 as impressions,
+            0 as paid_purchases,
+            0 as paid_revenue, 
+            COALESCE(SUM(total_net_sales),0) as shopify_total_sales, 
+            COALESCE(SUM(orders),0) as shopify_orders, 
+            COALESCE(SUM(first_orders),0) as shopify_first_orders, 
+            COALESCE(SUM(subtotal_sales_adj), 0) as shopify_subtotal_sales_adj,
+            COALESCE(sum(net_sales), 0) as shopify_net_sales
         FROM {{ source('reporting','shopify_sales') }} JOIN sales_adj USING (date,date_granularity)
         GROUP BY channel, date, date_granularity
     )
