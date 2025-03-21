@@ -25,7 +25,8 @@ WITH
     paid_data as
     (SELECT channel, date::date, date_granularity, COALESCE(SUM(spend),0) as spend, COALESCE(SUM(clicks),0) as clicks, COALESCE(SUM(impressions),0) as impressions, 
         COALESCE(SUM(paid_purchases),0) as paid_purchases, COALESCE(SUM(paid_revenue),0) as paid_revenue, 0 as shopify_total_sales, 0 as shopify_orders,
-    0 as shopify_first_orders, 0 as shopify_subtotal_sales_adj, 0 as shopify_net_sales
+    0 as shopify_first_orders, 0 as shopify_subtotal_sales_adj, 0 as shopify_net_sales,
+    0 as ga4_sessions, 0 as ga4_sessions_adjusted
     FROM
         (SELECT 'Meta' as channel, date, date_granularity, 
             spend, link_clicks as clicks, impressions, purchases as paid_purchases, revenue as paid_revenue
@@ -53,8 +54,32 @@ sho_data as
             COALESCE(SUM(orders),0) as shopify_orders, 
             COALESCE(SUM(first_orders),0) as shopify_first_orders, 
             COALESCE(SUM(subtotal_sales_adj), 0) as shopify_subtotal_sales_adj,
-            COALESCE(sum(net_sales), 0) as shopify_net_sales
+            COALESCE(sum(net_sales), 0) as shopify_net_sales,
+            0 as ga4_sessions,
+            0 as ga4_sessions_adjusted
         FROM {{ source('reporting','shopify_sales') }} JOIN sales_adj USING (date,date_granularity)
+        GROUP BY channel, date, date_granularity
+    ),
+
+ga4_data AS (
+        SELECT
+            'GA4' as channel,
+            date,
+            date_granularity,
+            0 as spend,
+            0 as clicks,
+            0 as impressions,
+            0 as paid_purchases,
+            0 as paid_revenue,
+            0 as shopify_total_sales,
+            0 as shopify_orders,
+            0 as shopify_first_orders,
+            0 as shopify_subtotal_sales_adj,
+            0 as shopify_net_sales,
+            COALESCE(SUM(sessions), 0) as ga4_sessions,
+            -- adjustement needed to better match shopify number that we can't directly pull 
+            0.8*COALESCE(SUM(sessions)) as ga4_sessions_adjusted,
+        FROM {{ source('reporting','ga4_performance') }}
         GROUP BY channel, date, date_granularity
     )
     
@@ -70,7 +95,11 @@ SELECT channel,
     shopify_orders,
     shopify_first_orders,
     shopify_subtotal_sales_adj,
-    shopify_net_sales
+    shopify_net_sales,
+    ga4_sessions,
+    ga4_sessions_adjusted
 FROM (
-    SELECT * FROM paid_data UNION ALL SELECT * FROM sho_data
+    SELECT * FROM paid_data
+    UNION ALL SELECT * FROM sho_data
+    UNION ALL SELECT * FROM ga4_data
 )
