@@ -78,7 +78,7 @@ ga4_data AS (
             0 as shopify_net_sales,
             COALESCE(SUM(sessions), 0) as ga4_sessions,
             -- adjustement needed to better match shopify number that we can't directly pull 
-            0.8*COALESCE(SUM(sessions)) as ga4_sessions_adjusted,
+            0.8*COALESCE(SUM(sessions)) as ga4_sessions_adjusted
         FROM {{ source('reporting','ga4_performance_by_campaign') }}
         GROUP BY channel, date, date_granularity
     )
