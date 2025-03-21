@@ -22,3 +22,9 @@ sources:
   tables:
     - name: shopify_orders
       identifier: shopify_orders
+
+- name: ga4_base
+  schema: ga4_base
+  tables:
+    - name: ga4_traffic_sources
+      identifier: sarahcreal_ga4_traffic_sources
