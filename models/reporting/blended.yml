@@ -17,17 +17,8 @@ sources:
     - name: shopify_daily_sales_by_order
       identifier: sarahcreal_shopify_daily_sales_by_order
 
-    - name: ga4_performance_by_campaign
-      identifier: sarahcreal_ga4_performance_by_campaign
-
 - name: shopify_base
   schema: shopify_base
   tables:
     - name: shopify_orders
       identifier: shopify_orders
-
-- name: ga4_base
-  schema: ga4_base
-  tables:
-    - name: ga4_traffic_sources
-      identifier: sarahcreal_ga4_traffic_sources
