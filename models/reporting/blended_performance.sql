@@ -33,7 +33,8 @@ WITH
             COALESCE(SUM(total_revenue),0) as shopify_total_sales,
             COUNT(DISTINCT order_id) as shopify_orders, 
             COUNT(DISTINCT CASE WHEN customer_order_index = 1 THEN order_id END) as shopify_first_orders,
-            COALESCE(SUM(gross_revenue),0)-COALESCE(SUM(subtotal_discount),0)-COALESCE(SUM(subtotal_refund),0) as shopify_net_sales
+            COALESCE(SUM(subtotal_discount),0) as subtotal_discount,
+            COALESCE(SUM(subtotal_refund),0) as subtotal_refund
         FROM {{ ref('shopify_daily_sales_by_order') }}
         LEFT JOIN 
             (SELECT order_id, COALESCE(SUM(subtotal_refund),0) as subtotal_refund
@@ -77,7 +78,7 @@ sho_data as
             COALESCE(SUM(shopify_orders),0) as shopify_orders, 
             COALESCE(SUM(shopify_first_orders),0) as shopify_first_orders, 
             COALESCE(SUM(subtotal_sales_adj), 0) as shopify_subtotal_sales_adj,
-            COALESCE(sum(shopify_net_sales), 0) as shopify_net_sales,
+            COALESCE(SUM(gross_revenue),0)-COALESCE(SUM(subtotal_discount),0)-COALESCE(SUM(subtotal_refund),0) as shopify_net_sales,
             COALESCE(SUM(shopify_gross_sales),0) as shopify_gross_sales,
             0 as ga4_sessions,
             0 as ga4_sessions_adjusted
