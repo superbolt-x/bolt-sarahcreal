@@ -35,13 +35,13 @@ WITH
             COUNT(DISTINCT CASE WHEN customer_order_index = 1 THEN order_id END) as shopify_first_orders,
             COALESCE(SUM(subtotal_discount),0) as subtotal_discount,
             COALESCE(SUM(subtotal_refund),0) as subtotal_refund
-        FROM {{ ref('shopify_daily_sales_by_order') }}
-        LEFT JOIN 
-            (SELECT order_id, COALESCE(SUM(subtotal_refund),0) as subtotal_refund
-            FROM {{ ref('shopify_daily_refunds') }} 
-            GROUP BY order_id) USING(order_id)
-        WHERE cancelled_at IS NULL
-        AND subtotal_revenue > 0
+        FROM    
+            (SELECT date, order_id, customer_order_index, gross_revenue, total_revenue, subtotal_discount, 0 as subtotal_refund FROM {{ ref('shopify_daily_sales_by_order') }}
+            WHERE cancelled_at IS NULL
+            AND subtotal_revenue > 0
+            UNION ALL
+            SELECT date, null as order_id, null as customer_order_index, 0 as gross_revenue, 0 as total_revenue, 0 as subtotal_discount, subtotal_refund FROM {{ ref('shopify_daily_refunds') }} 
+            WHERE cancelled_at IS NULL)
         GROUP BY date_granularity, {{granularity}}
         {% if not loop.last %}UNION ALL{% endif %}
         {% endfor %}
