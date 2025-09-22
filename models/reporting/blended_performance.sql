@@ -16,7 +16,7 @@ WITH
         LEFT JOIN 
             (SELECT order_id, COALESCE(SUM(total_discounts),0) as discount_amount 
             FROM {{ source('shopify_base','shopify_orders') }} 
-            WHERE (discount_code ~* 'shopmy' OR discount_code ~* 'skeeper') AND fulfillment_status IS NOT NULL
+            WHERE (discount_code ~* 'shopmy' OR discount_code ~* 'skeeper') 
             GROUP BY order_id) USING(order_id)
         WHERE cancelled_at IS NULL
         AND subtotal_revenue > 0
