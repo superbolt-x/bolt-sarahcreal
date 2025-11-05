@@ -67,6 +67,11 @@ WITH
         FROM {{ source('reporting','facebook_ad_performance') }}
         WHERE account = 'DTC'
         UNION ALL
+        SELECT 'Meta Sephora' as channel, date, date_granularity, 
+            spend, link_clicks as clicks, impressions, purchases as paid_purchases, revenue as paid_revenue
+        FROM {{ source('reporting','facebook_ad_performance') }}
+        WHERE account = 'Sephora'
+        UNION ALL
         SELECT 'Google Ads' as channel, date, date_granularity,
             spend, clicks, impressions, purchases as paid_purchases, revenue as paid_revenue
         FROM {{ source('reporting','googleads_campaign_performance') }}
