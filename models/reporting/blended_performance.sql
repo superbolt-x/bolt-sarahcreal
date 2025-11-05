@@ -67,7 +67,7 @@ WITH
         FROM {{ source('reporting','facebook_ad_performance') }}
         WHERE account = 'DTC' and campaign_name !~* 'traffic'
         UNION ALL
-        SELECT 'Meta Traffic' as channel, date, date_granularity, 
+        SELECT 'Meta Sephora' as channel, date, date_granularity, 
             spend, link_clicks as clicks, impressions, purchases as paid_purchases, revenue as paid_revenue
         FROM {{ source('reporting','facebook_ad_performance') }}
         WHERE account = 'DTC' and campaign_name ~* 'traffic'
