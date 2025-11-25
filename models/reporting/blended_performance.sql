@@ -29,11 +29,6 @@ WITH
     (SELECT date, day, week, month, quarter, year, 
         order_id, customer_order_index, gross_revenue, total_revenue, discount_amount, 0 as subtotal_refund 
     FROM {{ ref('shopify_daily_sales_by_order') }}
-    LEFT JOIN 
-            (SELECT order_id, COALESCE(SUM(total_discounts),0) as discount_amount 
-            FROM {{ source('shopify_base','shopify_orders') }} 
-            WHERE (discount_code ~* 'shopmy' OR discount_code ~* 'skeeper') 
-            GROUP BY order_id) USING(order_id)
     WHERE cancelled_at IS NULL
     AND subtotal_revenue > 0
     UNION ALL
