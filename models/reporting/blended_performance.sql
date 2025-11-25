@@ -27,17 +27,20 @@ WITH
 
     refund_order_data AS
     (SELECT date, day, week, month, quarter, year, 
-        order_id, customer_order_index, gross_revenue, total_revenue, subtotal_discount, 0 as subtotal_refund 
+        order_id, customer_order_index, gross_revenue, total_revenue, discount_amount, 0 as subtotal_refund 
     FROM {{ ref('shopify_daily_sales_by_order') }}
+    LEFT JOIN 
+            (SELECT order_id, COALESCE(SUM(total_discounts),0) as discount_amount 
+            FROM {{ source('shopify_base','shopify_orders') }} 
+            WHERE (discount_code ~* 'shopmy' OR discount_code ~* 'skeeper') 
+            GROUP BY order_id) USING(order_id)
     WHERE cancelled_at IS NULL
     AND subtotal_revenue > 0
-    AND order_id in (SELECT order_id FROM {{ source('shopify_base','shopify_orders') }})
     UNION ALL
     SELECT date, day, week, month, quarter, year, 
-        null as order_id, null as customer_order_index, 0 as gross_revenue, 0 as total_revenue, 0 as subtotal_discount, subtotal_refund 
+        null as order_id, null as customer_order_index, 0 as gross_revenue, 0 as total_revenue, 0 as discount_amount, subtotal_refund 
     FROM {{ ref('shopify_daily_refunds') }} 
-    WHERE cancelled_at IS NULL
-    AND order_id in (SELECT order_id FROM {{ source('shopify_base','shopify_orders') }}),
+    WHERE cancelled_at IS NULL),
     
     initial_sho_data AS (
         {% for granularity in date_granularity_list %}
@@ -48,7 +51,7 @@ WITH
             COALESCE(SUM(total_revenue),0) as shopify_total_sales,
             COUNT(DISTINCT order_id) as shopify_orders, 
             COUNT(DISTINCT CASE WHEN customer_order_index = 1 THEN order_id END) as shopify_first_orders,
-            COALESCE(SUM(subtotal_discount),0) as subtotal_discount,
+            COALESCE(SUM(discount_amount),0) as subtotal_discount,
             COALESCE(SUM(subtotal_refund),0) as subtotal_refund
         FROM refund_order_data
         GROUP BY date_granularity, {{granularity}}
