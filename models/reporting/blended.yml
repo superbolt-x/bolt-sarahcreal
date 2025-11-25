@@ -25,3 +25,5 @@ sources:
   tables:
     - name: shopify_orders
       identifier: shopify_orders
+    - name: shopify_refunds
+      identifier: shopify_refunds
