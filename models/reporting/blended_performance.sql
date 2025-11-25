@@ -30,7 +30,8 @@ WITH
         order_id, customer_order_index, gross_revenue, total_revenue, total_discounts, 0 as subtotal_refund 
     FROM {{ source('shopify_base','shopify_orders') }}
     UNION ALL
-    SELECT refund_date as date, day, week, month, quarter, year, 
+    SELECT refund_date as date, date_trunc('day',refund_date) as day, date_trunc('week',refund_date) as week, date_trunc('month',refund_date) as month,
+        date_trunc('quarter',refund_date) as quarter, date_trunc('year',refund_date) as year,
         null as order_id, null as customer_order_index, 0 as gross_revenue, 0 as total_revenue, 0 as total_discounts, subtotal_refund-amount_discrepancy_refund as subtotal_refund
     FROM {{ source('shopify_base','shopify_refunds') }}),
     
