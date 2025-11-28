@@ -27,7 +27,8 @@ WITH
 
     refund_order_data AS
     (SELECT order_date as date, day, week, month, quarter, year, 
-        order_id, customer_order_index, gross_revenue, total_revenue, total_discounts, 0 as subtotal_refund 
+        order_id, customer_order_index, gross_revenue, total_revenue, 
+        case when (discount_code ~* 'shopmy' OR discount_code ~* 'skeeper') then total_discounts else 0 end as total_discounts, 0 as subtotal_refund 
     FROM {{ source('shopify_base','shopify_orders') }}
     UNION ALL
     SELECT refund_date as date, date_trunc('day',refund_date) as day, date_trunc('week',refund_date) as week, date_trunc('month',refund_date) as month,
