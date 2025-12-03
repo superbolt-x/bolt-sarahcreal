@@ -27,13 +27,13 @@ WITH
 
     refund_order_data AS
     (SELECT order_date as date, day, week, month, quarter, year, 
-        order_id, customer_order_index, gross_revenue, total_revenue, 
-        case when (discount_code ~* 'shopmy' OR discount_code ~* 'skeeper') then total_discounts else 0 end as total_discounts, 0 as subtotal_refund 
+        order_id, customer_order_index, gross_revenue, total_revenue, total_discounts,
+        case when (discount_code ~* 'shopmy' OR discount_code ~* 'skeeper') then total_discounts else 0 end as total_discounts_filtered, 0 as subtotal_refund 
     FROM {{ source('shopify_base','shopify_orders') }}
     UNION ALL
     SELECT refund_date as date, date_trunc('day',refund_date) as day, date_trunc('week',refund_date) as week, date_trunc('month',refund_date) as month,
         date_trunc('quarter',refund_date) as quarter, date_trunc('year',refund_date) as year,
-        null as order_id, null as customer_order_index, 0 as gross_revenue, 0 as total_revenue, 0 as total_discounts, subtotal_refund-amount_discrepancy_refund as subtotal_refund
+        null as order_id, null as customer_order_index, 0 as gross_revenue, 0 as total_revenue, 0 as total_discounts, 0 as total_discounts_filtered, subtotal_refund-amount_discrepancy_refund as subtotal_refund
     FROM {{ source('shopify_base','shopify_refunds') }}),
     
     initial_sho_data AS (
@@ -46,6 +46,7 @@ WITH
             COUNT(DISTINCT order_id) as shopify_orders, 
             COUNT(DISTINCT CASE WHEN customer_order_index = 1 THEN order_id END) as shopify_first_orders,
             COALESCE(SUM(total_discounts),0) as subtotal_discount,
+            COALESCE(SUM(total_discounts_filtered),0) as subtotal_discount_filtered,
             COALESCE(SUM(subtotal_refund),0) as subtotal_refund
         FROM refund_order_data
         GROUP BY date_granularity, {{granularity}}
@@ -90,7 +91,7 @@ sho_data as
             COALESCE(SUM(shopify_first_orders),0) as shopify_first_orders, 
             COALESCE(SUM(subtotal_sales_adj), 0) as shopify_subtotal_sales_adj,
             COALESCE(SUM(shopify_gross_sales),0)-COALESCE(SUM(subtotal_discount),0)-COALESCE(SUM(subtotal_refund),0) as shopify_net_sales,
-            COALESCE(SUM(shopify_gross_sales),0) as shopify_gross_sales,
+            COALESCE(SUM(shopify_gross_sales),0)-COALESCE(SUM(subtotal_discount_filtered),0) as shopify_gross_sales,
             0 as ga4_sessions,
             0 as ga4_sessions_adjusted
         FROM initial_sho_data 
