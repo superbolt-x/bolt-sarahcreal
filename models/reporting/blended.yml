@@ -11,9 +11,6 @@ sources:
     - name: googleads_campaign_performance
       identifier: sarahcreal_googleads_campaign_performance
 
-    - name: pinterest_ad_group_performance
-      identifier: sarahcreal_pinterest_ad_group_performance
-
     - name: shopify_sales
       identifier: sarahcreal_shopify_sales
 
@@ -22,6 +19,9 @@ sources:
 
     - name: ga4_performance_by_campaign
       identifier: sarahcreal_ga4_performance_by_campaign
+
+    - name: pinterest_ad_group_performance
+      identifier: sarahcreal_pinterest_ad_group_performance
 
 - name: shopify_base
   schema: shopify_base
