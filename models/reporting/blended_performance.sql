@@ -73,6 +73,10 @@ WITH
         SELECT 'Google Ads' as channel, date, date_granularity,
             spend, clicks, impressions, purchases as paid_purchases, revenue as paid_revenue
         FROM {{ source('reporting','googleads_campaign_performance') }}
+        UNION ALL
+        SELECT 'Pinterest' as channel, date, date_granularity,
+            spend, clicks, impressions, purchases as paid_purchases, revenue as paid_revenue
+        FROM {{ source('reporting','pinterest_ad_group_performance') }}
         )
     GROUP BY channel, date, date_granularity),
 
