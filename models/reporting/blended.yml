@@ -11,6 +11,9 @@ sources:
     - name: googleads_campaign_performance
       identifier: sarahcreal_googleads_campaign_performance
 
+   - name: pinterest_ad_group_performance
+      identifier: sarahcreal_pinterest_ad_group_performance
+
     - name: shopify_sales
       identifier: sarahcreal_shopify_sales
 
