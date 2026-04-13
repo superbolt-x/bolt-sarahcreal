@@ -23,6 +23,9 @@ sources:
     - name: pinterest_ad_group_performance
       identifier: sarahcreal_pinterest_ad_group_performance
 
+    - name: tiktok_ad_performance
+      identifier: sarahcreal_tiktok_ad_performance
+
 - name: shopify_base
   schema: shopify_base
   tables:
