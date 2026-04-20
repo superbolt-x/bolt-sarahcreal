@@ -61,13 +61,17 @@ WITH
     0 as ga4_sessions, 0 as ga4_sessions_adjusted
     FROM
         (SELECT 'Meta' as channel, date, date_granularity, 
-            spend, link_clicks as clicks, impressions, purchases as paid_purchases, revenue as paid_revenue
-        FROM {{ source('reporting','facebook_ad_performance') }}
+            spend, link_clicks as clicks, impressions, 
+            coalesce(purchases,0)+coalesce(purchases_shared_items,0) as paid_purchases, 
+            coalesce(revenue,0)+coalesce(revenue_shared_items,0) as paid_revenue
+        FROM {{ source('reporting','facebook_campaign_performance') }}
         WHERE account = 'DTC' and campaign_name !~* 'traffic'
         UNION ALL
         SELECT 'Meta with Traffic' as channel, date, date_granularity, 
-            spend, link_clicks as clicks, impressions, purchases as paid_purchases, revenue as paid_revenue
-        FROM {{ source('reporting','facebook_ad_performance') }}
+            spend, link_clicks as clicks, impressions, 
+            coalesce(purchases,0)+coalesce(purchases_shared_items,0) as paid_purchases, 
+            coalesce(revenue,0)+coalesce(revenue_shared_items,0) as paid_revenue
+        FROM {{ source('reporting','facebook_campaign_performance') }}
         WHERE account = 'DTC' and campaign_name ~* 'traffic'
         UNION ALL
         SELECT 'Google Ads' as channel, date, date_granularity,
