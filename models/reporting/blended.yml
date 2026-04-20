@@ -8,6 +8,9 @@ sources:
     - name: facebook_ad_performance
       identifier: sarahcreal_facebook_ad_performance
 
+    - name: facebook_campaign_performance
+      identifier: sarahcreal_facebook_campaign_performance
+
     - name: googleads_campaign_performance
       identifier: sarahcreal_googleads_campaign_performance
 
