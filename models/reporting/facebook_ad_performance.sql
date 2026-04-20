@@ -4,7 +4,7 @@
 
 SELECT
     CASE WHEN account_id = '816379750560368' THEN 'DTC'
-         WHEN account_id = '1697010251141731' THEN 'Sephora'
+         WHEN account_id in ('1697010251141731','1683871059295011') THEN 'Sephora'
     END AS account,
 campaign_name,
 campaign_id,
