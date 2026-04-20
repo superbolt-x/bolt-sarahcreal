@@ -92,6 +92,12 @@ WITH
         SELECT 'Tiktok' as channel, date, date_granularity,
             spend, clicks, impressions, purchases as paid_purchases, revenue as paid_revenue
         FROM {{ source('reporting','tiktok_ad_performance') }}
+        WHERE campaign_id != 1861822514294002
+        UNION ALL
+        SELECT 'Tiktok Sephora' as channel, date, date_granularity,
+            spend, clicks, impressions, purchases as paid_purchases, revenue as paid_revenue
+        FROM {{ source('reporting','tiktok_ad_performance') }}
+        WHERE campaign_id = 1861822514294002
         )
     GROUP BY channel, date, date_granularity),
 
