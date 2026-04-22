@@ -17,9 +17,6 @@ sources:
     - name: shopify_sales
       identifier: sarahcreal_shopify_sales
 
-    - name: shopify_daily_sales_by_order
-      identifier: sarahcreal_shopify_daily_sales_by_order
-
     - name: ga4_performance_by_campaign
       identifier: sarahcreal_ga4_performance_by_campaign
 
@@ -28,11 +25,3 @@ sources:
 
     - name: tiktok_ad_performance
       identifier: sarahcreal_tiktok_ad_performance
-
-- name: shopify_base
-  schema: shopify_base
-  tables:
-    - name: shopify_orders
-      identifier: shopify_orders
-    - name: shopify_refunds
-      identifier: shopify_refunds
