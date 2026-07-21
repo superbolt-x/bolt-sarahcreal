@@ -34,7 +34,7 @@ vars:
     sales_channel_inclusion: 'dummy' # exclude orders that came from certain sales channels from analytics e.g. 'channel1|channel2'
     shipping_countries_excluded: 'dummy' # include only orders which shipping country is in the list e.g. 'FR|BE', except if value 'dummy' is left 
     shipping_countries_included: 'dummy' # include only orders which shipping country is in the list e.g. 'FR|BE', except if value 'dummy' is left 
-    financial_status: 'paid|partially_refunded|refunded|partially_paid' # include orders with a specific financial status, except if value 'dummy' is left
+    financial_status: 'dummy' # include orders with a specific financial status, except if value 'dummy' is left
     canceled_orders: 'excluded' # include/exclude canceled orders
 
 models:
