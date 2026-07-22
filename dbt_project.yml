@@ -1,3 +1,4 @@
+
 name: 'bolt_blueprint'
 version: '1.0.0'
 config-version: 2
@@ -32,8 +33,8 @@ vars:
     order_tags_keyword_exclusion: 'dummy' # exclude orders with tags including certain keywords from analytics e.g. 'dummy1|dummy2'
     sales_channel_exclusion: 'dummy' # exclude orders that came from certain sales channels from analytics e.g. 'channel1|channel2'
     sales_channel_inclusion: 'dummy' # exclude orders that came from certain sales channels from analytics e.g. 'channel1|channel2'
-    shipping_countries_excluded: 'dummy' # include only orders which shipping country is in the list e.g. 'FR|BE', except if value 'dummy' is left 
-    shipping_countries_included: 'dummy' # include only orders which shipping country is in the list e.g. 'FR|BE', except if value 'dummy' is left 
+    shipping_countries_excluded: 'dummy' # include only orders which shipping country is in the list e.g. 'FR|BE', except if value 'dummy' is left
+    shipping_countries_included: 'dummy' # include only orders which shipping country is in the list e.g. 'FR|BE', except if value 'dummy' is left
     financial_status: 'dummy' # include orders with a specific financial status, except if value 'dummy' is left
     canceled_orders: 'excluded' # include/exclude canceled orders
 
@@ -41,8 +42,12 @@ models:
   bolt_blueprint:
     base:
       +schema: base
-      +materialized: ephemeral
-      
+      +materialized: table
+
     reporting:
       +schema: reporting
       +materialized: table
+
+  bolt_dbt_shopify_package:
+    base:
+      +materialized: ephemeral
