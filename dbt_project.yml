@@ -41,7 +41,7 @@ models:
   bolt_blueprint:
     base:
       +schema: base
-      +materialized: table
+      +materialized: ephemeral
       
     reporting:
       +schema: reporting
