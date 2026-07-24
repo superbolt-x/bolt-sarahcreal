@@ -5,7 +5,7 @@
 {%- set date_granularity_list = ['day','week','month','quarter','year'] -%}
 
 
-initial_sho_data AS (
+WITH initial_sho_data AS (
     {% for granularity in date_granularity_list %}
     SELECT 
         '{{granularity}}' as date_granularity,
