@@ -10,7 +10,9 @@ initial_sho_data AS (
     SELECT 
         '{{granularity}}' as date_granularity,
         date_trunc('{{granularity}}', effective_date) as date,
-        COALESCE(SUM(gross_revenue),0) as shopify_gross_sales
+        COALESCE(SUM(gross_revenue),0) as shopify_gross_sales,
+        COUNT(DISTINCT order_id) as shopify_orders,
+        COUNT(DISTINCT CASE WHEN customer_order_index = 1 THEN order_id END) as shopify_first_orders
     FROM (
         SELECT 
             *,
@@ -87,8 +89,8 @@ sho_data as
             0 as paid_purchases,
             0 as paid_revenue, 
             0 as shopify_total_sales, 
-            0 as shopify_orders, 
-            0 as shopify_first_orders, 
+            COALESCE(SUM(shopify_orders),0) as shopify_orders, 
+            COALESCE(SUM(shopify_first_orders),0) as shopify_first_orders, 
             0 as shopify_subtotal_sales_adj,
             0 as shopify_net_sales,
             COALESCE(SUM(shopify_gross_sales),0) as shopify_gross_sales,
