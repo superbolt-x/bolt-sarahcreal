@@ -17,5 +17,6 @@ sarahcrealbeautyga4webpurchase as purchases,
 sarahcrealbeautyga4webpurchase_value as revenue,
 search_impression_share,
 search_budget_lost_impression_share,
-search_rank_lost_impression_share
+search_rank_lost_impression_share,
+conversions_value as conv_value
 FROM {{ ref('googleads_performance_by_campaign') }}
