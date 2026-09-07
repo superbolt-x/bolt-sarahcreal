@@ -4,45 +4,53 @@
 
 {#
     One row per detected reporting problem for Sarah Creal Beauty.
-    Pattern mirrors reporting.fabric_reporting_health, adapted for a DTC/ecommerce client
-    with no UTM->campaign mapping layer (Fabric's MAPPING_GAP/ORPHAN_UTM checks don't apply
-    here -- there's no backend-funnel attribution join to break).
 
-    Checks:
-      STALE_SOURCE            per-channel freshness against blended_performance. Encodes the
-                               failure found in the 2026-08-21 audit: the GA4 connector broke
-                               2026-01-13 and reported near-zero sessions for 220+ days with
-                               no alert.
-      UNTOLERANCED_CHANNEL    STALE_SOURCE joins channel -> tolerance. That join is an inner
-                               join, so a NEW channel value silently escapes freshness
-                               monitoring. This makes a channel with no tolerance row visible.
-      UNKNOWN_MARKET          after macros/order_market.sql routes no-country POS orders to
-                               US, the 'unknown' market bucket should always be empty. A row
-                               here is a genuinely new classification gap.
-      STRANDED_ORDERS         orders that fall out of every date bucket -- see the note on
-                               the CTE. Pre-existing behaviour, surfaced rather than fixed,
-                               because fixing it changes already-reported historical months.
-      MISSING_REPORTING_TABLE a model file exists in this repo with no table in the warehouse.
-      UK_OPEN_DATE            informational: the UK open date the pipeline derives right now.
+    THE CONTRACT: an EMPTY result means everything passed. That only works if a 'fail' row
+    genuinely means "a client-facing number is wrong right now". The first version failed
+    that test -- it reported 9 fails, and on review (2026-09-07) almost all of them were
+    working as intended: channels stale because they are paused, models with no table
+    because the connector was never set up, orders excluded because the client asked for
+    revenue to be recognised on fulfilment. A permanently-red gate is a gate nobody reads.
 
-    Severity: 'fail' = needs attention before this data is reported to the client.
-              'info' = no action, surfaced so the value is visible.
+    So severity is now earned:
+      'fail' = a client-facing number is wrong, or a classification gap has appeared
+      'info' = true, worth knowing, expected -- no action implied
 
-    ---------------------------------------------------------------------------------------
-    WHY MISSING_REPORTING_TABLE IS RESOLVED IN JINJA, NOT IN SQL
+    SOURCE FRESHNESS IS DERIVED, NOT DECLARED
+    A channel is only BROKEN if its data is behind WHILE IT IS STILL SPENDING. If spend
+    stopped when the data stopped, the channel is dormant and that is correct behaviour.
+    This is deliberately self-maintaining: nothing to add to a list when a channel is
+    paused, and the moment someone unpauses it, spend resumes -- so a genuine pipe failure
+    re-flags on its own. As of 2026-09-07 only 3 of 10 channels are actually spending
+    (Meta, Google Ads, Meta UK); the other 7 are dormant by choice.
 
-    information_schema is a leader-node-only relation in Redshift. Combining it with a
-    compute-node (user) table in a single statement fails with:
+    The one thing that cannot be derived is a channel with no spend metric (Shopify, GA4).
+    Staleness there is real unless someone says otherwise, so those need an explicit
+    declaration -- and the declaration is itself checked: PAUSED_SOURCE_ACTIVE fires if a
+    source declared paused starts landing data again, so the list cannot rot silently.
 
-        Specified types or functions (one per INFO message) not supported on Redshift tables.
-
-    That is why this model had never materialized, from its first version onward -- the
-    2026-08-21 proposal attributed it to an unknown deploy path, but the model could not
-    have built regardless. run_query below executes the catalog lookup as its own statement
-    at compile time, so the model body emits plain literals and touches no catalog relation.
-    ---------------------------------------------------------------------------------------
+    NOTE ON THE PREVIOUS TOLERANCE LIST: it was an inner join, so a channel missing from it
+    escaped freshness checking entirely. Replaced with a Jinja default plus overrides, which
+    removes that failure mode by construction rather than by adding a check for it.
 #}
 
+{#- freshness tolerance in days: default, with per-channel overrides -#}
+{%- set default_tolerance = 2 -%}
+{%- set tolerance_overrides = {} -%}
+
+{#- channels with no spend metric: staleness is real unless declared paused -#}
+{%- set spendless_channels = ['Shopify', 'GA4'] -%}
+
+{#- sources deliberately switched off. Confirmed with the account team 2026-09-07:
+    the GA4 Fivetran connector is paused on purpose. Anything added here is checked
+    by PAUSED_SOURCE_ACTIVE below, so a stale entry surfaces itself. -#}
+{%- set declared_paused = ['GA4'] -%}
+
+{#- MISSING_REPORTING_TABLE is resolved at COMPILE time. information_schema is a
+    leader-node-only relation in Redshift, and combining it with a compute-node table in one
+    statement fails with "Specified types or functions ... not supported on Redshift tables."
+    That is why this model never built before 2026-09-07. run_query runs the catalog lookup as
+    its own statement; the model body below emits literals and touches no catalog relation. -#}
 {%- set expected_models = [
     'facebook_ad_performance',
     'facebook_campaign_performance',
@@ -71,30 +79,58 @@
 
 with
 
-freshness as (
+channel_state as (
     select
         channel,
-        max(date) as max_date
+        max(date) as last_data,
+        max(case when spend > 0 then date end) as last_spend,
+        sum(case when date >= dateadd(day, -14, current_date) then spend else 0 end) as spend_14d,
+        sum(case when date >= dateadd(day, -30, current_date) then spend else 0 end) as spend_30d,
+        {#- guard the empty case: `case channel else N end` with no WHEN is invalid SQL -#}
+        {%- if tolerance_overrides %}
+        case channel
+            {%- for ch, d in tolerance_overrides.items() %}
+            when '{{ ch }}' then {{ d }}
+            {%- endfor %}
+            else {{ default_tolerance }}
+        end as tolerance_days
+        {%- else %}
+        {{ default_tolerance }} as tolerance_days
+        {%- endif %}
     from {{ ref('blended_performance') }}
     where date_granularity = 'day'
     group by channel
 ),
 
--- Per-channel tolerance. Pinterest gets 3d (Fivetran reports it 'connected' but the
--- underlying reporting account has historically lagged a few days); everything else is 2d.
--- 'Meta UK' was added here at the same time as the channel value itself, so the UK launch
--- did not arrive unmonitored -- see UNTOLERANCED_CHANNEL for why that matters.
-tolerance as (
-    select 'Meta' as channel, 2 as tolerance_days
-    union all select 'Meta with Traffic', 2
-    union all select 'Meta Sephora', 2
-    union all select 'Meta UK', 2
-    union all select 'Google Ads', 2
-    union all select 'Pinterest', 3
-    union all select 'Tiktok', 2
-    union all select 'Tiktok Sephora', 2
-    union all select 'Shopify', 2
-    union all select 'GA4', 2
+classified as (
+    select
+        channel,
+        last_data,
+        last_spend,
+        spend_14d,
+        spend_30d,
+        tolerance_days,
+        datediff(day, last_data, current_date) as data_behind,
+        channel in ({{ "'" ~ spendless_channels | join("','") ~ "'" }}) as is_spendless,
+        channel in ({{ "'" ~ declared_paused | join("','") ~ "'" }}) as is_declared_paused
+    from channel_state
+),
+
+verdict as (
+    select *,
+        case
+            -- a source we were told is off, which has started producing again
+            when is_declared_paused and data_behind <= tolerance_days then 'PAUSED_SOURCE_ACTIVE'
+            when is_declared_paused                                   then 'PAUSED_SOURCE'
+            when data_behind <= tolerance_days and (is_spendless or spend_30d > 0) then 'OK'
+            -- no spend metric to reason about, so staleness is taken at face value
+            when data_behind > tolerance_days and is_spendless        then 'STALE_SOURCE'
+            -- data behind while money is still going out: the pipe is broken
+            when data_behind > tolerance_days and spend_14d > 0       then 'STALE_SOURCE'
+            -- data stopped when spend stopped, or spend has simply stopped: expected
+            else 'DORMANT_CHANNEL'
+        end as status
+    from classified
 ),
 
 stale_sources as (
@@ -102,34 +138,68 @@ stale_sources as (
         'STALE_SOURCE'::varchar as check_name,
         'fail'::varchar as severity,
         'all'::varchar as product,
-        f.channel::varchar as entity,
-        datediff(day, f.max_date, current_date)::bigint as metric_value,
-        (f.channel || ' channel in {{ target.database }}_blended_performance is ' ||
-         datediff(day, f.max_date, current_date)::varchar ||
-         ' days behind (last date ' || f.max_date::varchar || ', tolerance ' ||
-         t.tolerance_days::varchar || 'd).')::varchar as detail
-    from freshness f
-    join tolerance t on t.channel = f.channel
-    where datediff(day, f.max_date, current_date) > t.tolerance_days
+        channel::varchar as entity,
+        data_behind::bigint as metric_value,
+        (channel || ' is ' || data_behind::varchar || ' days behind (last date ' ||
+         last_data::date::varchar || ', tolerance ' || tolerance_days::varchar || 'd)' ||
+         case when is_spendless
+              then ', and has no spend metric to explain it.'
+              else ', while still spending -- $' || round(spend_14d)::varchar ||
+                   ' in the last 14 days. Money is going out and the data is not coming in.'
+         end)::varchar as detail
+    from verdict
+    where status = 'STALE_SOURCE'
 ),
 
-untoleranced_channels as (
+paused_source_active as (
     select
-        'UNTOLERANCED_CHANNEL'::varchar as check_name,
+        'PAUSED_SOURCE_ACTIVE'::varchar as check_name,
         'fail'::varchar as severity,
         'all'::varchar as product,
-        f.channel::varchar as entity,
-        datediff(day, f.max_date, current_date)::bigint as metric_value,
-        ('Channel ' || f.channel || ' exists in {{ target.database }}_blended_performance ' ||
-         'but has no row in the tolerance list in reporting_health.sql, so it is NOT being ' ||
-         'freshness-checked. Add it.')::varchar as detail
-    from freshness f
-    left join tolerance t on t.channel = f.channel
-    where t.channel is null
+        channel::varchar as entity,
+        data_behind::bigint as metric_value,
+        (channel || ' is declared paused in reporting_health.sql but is landing data again ' ||
+         '(last date ' || last_data::date::varchar || '). Remove it from `declared_paused` ' ||
+         'so it is freshness-checked properly.')::varchar as detail
+    from verdict
+    where status = 'PAUSED_SOURCE_ACTIVE'
+),
+
+paused_sources as (
+    select
+        'PAUSED_SOURCE'::varchar as check_name,
+        'info'::varchar as severity,
+        'all'::varchar as product,
+        channel::varchar as entity,
+        data_behind::bigint as metric_value,
+        (channel || ' is switched off on purpose -- declared paused in reporting_health.sql. ' ||
+         'Last data ' || last_data::date::varchar || ', ' || data_behind::varchar ||
+         ' days ago. Any number sourced from it is frozen at that date.')::varchar as detail
+    from verdict
+    where status = 'PAUSED_SOURCE'
+),
+
+dormant_channels as (
+    select
+        'DORMANT_CHANNEL'::varchar as check_name,
+        'info'::varchar as severity,
+        'all'::varchar as product,
+        channel::varchar as entity,
+        coalesce(datediff(day, last_spend, current_date), -1)::bigint as metric_value,
+        (channel || ' has no spend in the last 30 days' ||
+         coalesce(' (last spend ' || last_spend::date::varchar || ', ' ||
+                  datediff(day, last_spend, current_date)::varchar || ' days ago)',
+                  ' and no spend on record') ||
+         '. It still appears in the reporting cards, contributing zeros. Expected if the ' ||
+         'channel is paused; worth a look if it is not.')::varchar as detail
+    from verdict
+    where status = 'DORMANT_CHANNEL'
+       or (status = 'OK' and not is_spendless and spend_30d = 0)
 ),
 
 -- After macros/order_market.sql routes no-country POS orders to US, 'unknown' should be
--- permanently empty. Any order landing here has no shipping country AND is not a POS sale.
+-- permanently empty. Any order landing here has no shipping country AND is not a POS sale,
+-- which means a genuinely new classification gap. Stays 'fail'.
 unknown_market as (
     select
         'UNKNOWN_MARKET'::varchar as check_name,
@@ -148,30 +218,28 @@ unknown_market as (
     having count(*) > 0
 ),
 
--- Orders that fall out of every date bucket entirely.
+-- Orders that never enter a dated report.
 --
--- blended_performance sets effective_date = fulfillment_date for any month that is not the
--- current one. An order still unfulfilled when its month rolls over therefore gets a NULL
--- effective_date and disappears from every dated report -- it is not late, it is gone.
+-- This is INTENTIONAL, confirmed 2026-09-07: the client asked for revenue to be recognised
+-- on fulfilment, so blended_performance uses fulfillment_date as the effective date for any
+-- non-current month. An unfulfilled order is therefore pending, not lost -- if it ships, it
+-- lands on its fulfilment date and counts from then.
 --
--- This is PRE-EXISTING behaviour, not introduced by the market split. It is surfaced here
--- rather than fixed because the fix (coalesce(fulfillment_date, date)) would change
--- already-reported historical months -- as of 2026-09-07, 214 US orders and $27,446 of
--- gross revenue, concentrated in January 2026 (162 orders, $20,439). That is a client-facing
--- number change and needs a decision, not a silent correction.
+-- Kept as 'info' because it is not a reporting fault, but the ages are an ops signal: the
+-- oldest is 552 days and 162 of them are January 2026 alone, which looks like a fulfilment
+-- backlog or a status-sync gap rather than normal drift. The order-level list is Metabase
+-- card 57483.
 stranded_orders as (
     select
-        'STRANDED_ORDERS'::varchar as check_name,
-        'fail'::varchar as severity,
+        'PENDING_FULFILMENT'::varchar as check_name,
+        'info'::varchar as severity,
         'all'::varchar as product,
         'shopify_orders'::varchar as entity,
         sum(shopify_orders)::bigint as metric_value,
-        (sum(shopify_orders)::varchar || ' order(s) worth ' ||
-         round(sum(shopify_gross_sales))::varchar ||
-         ' are in a NULL-date bucket in {{ target.database }}_blended_performance and appear ' ||
-         'in no dated report. Cause: effective_date falls back to fulfillment_date for any ' ||
-         'non-current month, so orders unfulfilled at month end have no date. Fix would be ' ||
-         'coalesce(fulfillment_date, date) -- changes historical reported months.')::varchar as detail
+        (sum(shopify_orders)::varchar || ' past-month order(s) worth ' ||
+         round(sum(shopify_gross_sales))::varchar || ' are unfulfilled, so they are not in ' ||
+         'any dated report. This is by design -- revenue is recognised on fulfilment. They ' ||
+         'will count if they ship. Order-level list: Metabase card 57483.')::varchar as detail
     from {{ ref('blended_performance') }}
     where date is null
       and date_granularity = 'day'
@@ -180,8 +248,8 @@ stranded_orders as (
 ),
 
 -- The UK open date is derived from the orders, never hardcoded, so that a launch slipping a
--- day cannot silently re-label US sales. Surfaced here so the value in use is inspectable.
--- Note the filters: run against the raw order set this returns 2026-01-15 (comped and
+-- day cannot silently re-label US sales. Surfaced so the value in use is inspectable.
+-- Note the filters: against the raw order set this returns 2026-01-15 (comped and
 -- marketplace one-offs with subtotal_revenue = 0), not the real 2026-08-31 launch.
 uk_open_date as (
     select
@@ -200,23 +268,25 @@ uk_open_date as (
       and financial_status in ('paid','partially_refunded','refunded','partially_paid')
 ),
 
--- Resolved at compile time -- see the header note. No catalog relation appears here.
+-- 'info', not 'fail': nothing queries these tables, so no client-facing number is wrong.
+-- Reviewed 2026-09-07 -- Bing has no connector and there is no live PMax campaign, so two
+-- of these are expected indefinitely. Kept visible so the list does not have to be
+-- rediscovered by hand during the next audit.
 missing_tables as (
     {%- if missing_models %}
     {%- for m in missing_models %}
     select
         'MISSING_REPORTING_TABLE'::varchar as check_name,
-        'fail'::varchar as severity,
+        'info'::varchar as severity,
         'all'::varchar as product,
         '{{ target.database }}_{{ m }}'::varchar as entity,
         0::bigint as metric_value,
-        ('A dbt model file exists for this table in bolt-sarahcreal, but no corresponding ' ||
-         'table exists in the reporting schema. dbt has never built it, or the last run ' ||
-         'failed for this model.')::varchar as detail
+        ('A dbt model file exists for this table in bolt-sarahcreal, but no table exists in ' ||
+         'the reporting schema. Expected where the source is not connected; otherwise the ' ||
+         'model has never built successfully.')::varchar as detail
     {% if not loop.last %}union all{% endif %}
     {%- endfor %}
     {%- else %}
-    -- every expected model has a table; emit a typed zero-row relation
     select
         null::varchar as check_name,
         null::varchar as severity,
@@ -230,9 +300,13 @@ missing_tables as (
 
 select current_date as checked_on, check_name, severity, product, entity, metric_value, detail from stale_sources
 union all
-select current_date, check_name, severity, product, entity, metric_value, detail from untoleranced_channels
+select current_date, check_name, severity, product, entity, metric_value, detail from paused_source_active
 union all
 select current_date, check_name, severity, product, entity, metric_value, detail from unknown_market
+union all
+select current_date, check_name, severity, product, entity, metric_value, detail from paused_sources
+union all
+select current_date, check_name, severity, product, entity, metric_value, detail from dormant_channels
 union all
 select current_date, check_name, severity, product, entity, metric_value, detail from stranded_orders
 union all
