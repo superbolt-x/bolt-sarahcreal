@@ -46,33 +46,44 @@
     by PAUSED_SOURCE_ACTIVE below, so a stale entry surfaces itself. -#}
 {%- set declared_paused = ['GA4'] -%}
 
-{#- MISSING_REPORTING_TABLE is resolved at COMPILE time. information_schema is a
-    leader-node-only relation in Redshift, and combining it with a compute-node table in one
-    statement fails with "Specified types or functions ... not supported on Redshift tables."
-    That is why this model never built before 2026-09-07. run_query runs the catalog lookup as
-    its own statement; the model body below emits literals and touches no catalog relation. -#}
-{%- set expected_models = [
-    'facebook_ad_performance',
-    'facebook_campaign_performance',
-    'facebook_campaign_performance_age',
-    'googleads_ad_performance',
-    'googleads_asset_group_performance',
-    'googleads_campaign_performance',
-    'pinterest_ad_group_performance',
-    'pinterest_pin_performance',
-    'tiktok_ad_performance',
-    'bingads_campaign_performance'
-] -%}
+{#- MISSING_REPORTING_TABLE is resolved at COMPILE time, in two steps.
 
-{%- set missing_models = [] -%}
+    1. information_schema is a leader-node-only relation in Redshift, and combining it with a
+       compute-node table in one statement fails with "Specified types or functions ... not
+       supported on Redshift tables." That is why this model never built before 2026-09-07.
+       run_query runs the catalog lookup as its own statement; the model body emits literals
+       and touches no catalog relation.
+
+    2. The list of models to expect is read from the dbt GRAPH rather than hardcoded. The
+       previous hardcoded list was the same class of problem as the old per-channel tolerance
+       table: it had to be edited by hand, so it drifted. Deleting a model file now removes it
+       from this check automatically, and adding one enrols it automatically.
+
+       Reading node.alias (not the model name) matters: it is the actual table name dbt will
+       create, so a model missing its `{{ config(alias = ...) }}` block is compared against
+       the name it would really land under rather than the one we assume. That is exactly the
+       bug facebook_campaign_performance_age had before it was retired.
+-#}
+{%- set expected_tables = [] -%}
+{%- set missing_tables_list = [] -%}
 {%- if execute -%}
+    {%- for node in graph.nodes.values() -%}
+        {%- if node.resource_type == 'model'
+               and node.package_name == project_name
+               and 'reporting' in node.fqn
+               and node.config.materialized != 'ephemeral'
+               and node.alias != this.identifier -%}
+            {%- do expected_tables.append(node.alias) -%}
+        {%- endif -%}
+    {%- endfor -%}
+
     {%- set catalog = run_query(
         "select table_name from information_schema.tables where table_schema = 'reporting'"
     ) -%}
     {%- set existing = catalog.columns[0].values() | list -%}
-    {%- for m in expected_models -%}
-        {%- if (target.database ~ '_' ~ m) not in existing -%}
-            {%- do missing_models.append(m) -%}
+    {%- for t in expected_tables | sort -%}
+        {%- if t not in existing -%}
+            {%- do missing_tables_list.append(t) -%}
         {%- endif -%}
     {%- endfor -%}
 {%- endif -%}
@@ -273,13 +284,13 @@ uk_open_date as (
 -- of these are expected indefinitely. Kept visible so the list does not have to be
 -- rediscovered by hand during the next audit.
 missing_tables as (
-    {%- if missing_models %}
-    {%- for m in missing_models %}
+    {%- if missing_tables_list %}
+    {%- for t in missing_tables_list %}
     select
         'MISSING_REPORTING_TABLE'::varchar as check_name,
         'info'::varchar as severity,
         'all'::varchar as product,
-        '{{ target.database }}_{{ m }}'::varchar as entity,
+        '{{ t }}'::varchar as entity,
         0::bigint as metric_value,
         ('A dbt model file exists for this table in bolt-sarahcreal, but no table exists in ' ||
          'the reporting schema. Expected where the source is not connected; otherwise the ' ||
