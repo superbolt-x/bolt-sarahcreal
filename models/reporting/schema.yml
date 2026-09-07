@@ -1,0 +1,54 @@
+version: 2
+
+# First tests in this project. Deliberately narrow: they cover the market dimension added
+# for the UK launch, plus the three columns every card filters on. The gap these close is
+# the one that let the GA4 connector outage run 220 days unnoticed -- nothing in this repo
+# asserted anything about its own output.
+#
+# Freshness lives in reporting_health.sql rather than dbt `source freshness`, because the
+# health model is queryable by anyone reading a number (see sarahcreal-client SKILL.md) and
+# a dbt test result is not.
+
+models:
+  - name: blended_performance
+    description: >
+      One cross-channel fact table. Holds day/week/month/quarter/year rows together, so every
+      query MUST filter date_granularity to exactly one value or spend roughly triples.
+      `market` splits US from UK; `channel` carries the DTC/Sephora split and one UK value
+      ('Meta UK').
+    columns:
+      - name: market
+        description: >
+          'US' | 'UK' | 'other' | 'unknown'. Orders classify by shipping country
+          (macros/order_market.sql); paid rows by campaign name (macros/campaign_market.sql).
+          'unknown' should always be empty -- reporting_health.sql fails if it is not.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['US', 'UK', 'other', 'unknown']
+
+      - name: channel
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - 'Meta'
+                - 'Meta UK'
+                - 'Meta with Traffic'
+                - 'Meta Sephora'
+                - 'Google Ads'
+                - 'Pinterest'
+                - 'Tiktok'
+                - 'Tiktok Sephora'
+                - 'Shopify'
+                - 'GA4'
+
+      - name: date
+        tests:
+          - not_null
+
+      - name: date_granularity
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['day', 'week', 'month', 'quarter', 'year']
