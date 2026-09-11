@@ -56,3 +56,27 @@ models:
           - not_null
           - accepted_values:
               values: ['day', 'week', 'month', 'quarter', 'year']
+
+  - name: facebook_ad_performance
+    columns:
+      - name: campaign_objective
+        description: >
+          Meta campaign objective (OUTCOME_SALES, OUTCOME_TRAFFIC, OUTCOME_LEADS,
+          OUTCOME_AWARENESS, OUTCOME_ENGAGEMENT), from facebook_raw.campaign_history
+          (latest row per campaign_id). Traffic/lead-gen/awareness campaigns have
+          little or no purchase tracking -- exclude them from CPA/ROAS calcs.
+        data_tests:
+          - not_null:
+              config:
+                where: "spend > 0"
+
+  - name: facebook_campaign_performance
+    columns:
+      - name: campaign_objective
+        description: >
+          Same as facebook_ad_performance.campaign_objective, joined at the
+          campaign grain.
+        data_tests:
+          - not_null:
+              config:
+                where: "spend > 0"
