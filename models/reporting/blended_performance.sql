@@ -90,7 +90,8 @@ WITH initial_sho_data AS (
         FROM {{ source('reporting','facebook_campaign_performance') }}
         WHERE account = 'Sephora'
         UNION ALL
-        SELECT 'Google Ads' as channel, campaign_name, {{ campaign_market('campaign_name') }} as market, date, date_granularity,
+        SELECT case when campaign_name ilike '%uk%' then 'Google Ads UK' else 'Google Ads' end as channel, 
+            campaign_name, {{ campaign_market('campaign_name') }} as market, date, date_granularity,
             spend, clicks, impressions, purchases as paid_purchases, revenue as paid_revenue
         FROM {{ source('reporting','googleads_campaign_performance') }}
         UNION ALL
